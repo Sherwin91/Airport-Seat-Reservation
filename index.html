@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Airport Seat Reservation - Producer-Consumer OS Lab Simulator</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="header-card">
+      <div class="brand">
+        <div class="brand-icon">✈️</div>
+        <div>
+          <div class="brand-title">Airport Seat Reservation Simulator</div>
+          <div class="brand-subtitle">OS Virtual Lab • Producer–Consumer Synchronization</div>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="simulator">
+          <span>⚙️ Main Simulator</span>
+        </button>
+        <button class="tab-btn" data-tab="race">
+          <span>🛡️ Race Condition Lab</span>
+        </button>
+        <button class="tab-btn" data-tab="theory">
+          <span>📖 OS Theory & C Code</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Top Control Bar -->
+    <div class="control-bar">
+      <div class="btn-group">
+        <button id="btn-auto-run" class="btn btn-primary">
+          <span>▶</span> Start Auto
+        </button>
+        <button id="btn-pause" class="btn" disabled>
+          <span>⏸</span> Pause
+        </button>
+        <button id="btn-next-step" class="btn btn-accent">
+          <span>▶|</span> Next Step
+        </button>
+        <button id="btn-reset" class="btn btn-warning">
+          <span>🔄</span> Reset
+        </button>
+        <button id="btn-race-demo" class="btn btn-danger">
+          <span>🛡️</span> Race Demo Mode
+        </button>
+      </div>
+
+      <div class="btn-group">
+        <button id="sync-toggle-btn" class="btn btn-primary">
+          <span>🛡️</span> Sync Enabled
+        </button>
+        <div class="speed-selector">
+          <span style="font-size:0.75rem; color:var(--text-muted); padding-left:0.5rem; font-weight:600;">SPEED:</span>
+          <button class="speed-btn" data-speed="1500">Slow</button>
+          <button class="speed-btn active" data-speed="800">Normal</button>
+          <button class="speed-btn" data-speed="300">Fast</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Step Notification Banner -->
+    <div class="step-banner">
+      <span id="step-badge" class="step-badge">READY</span>
+      <span id="step-desc" class="step-desc">Click "Start Auto" or "Next Step" to begin Producer–Consumer synchronization workflow.</span>
+    </div>
+
+    <!-- TAB 1: MAIN SIMULATOR -->
+    <div id="tab-simulator" class="tab-content active">
+      
+      <!-- Visual Workflow Diagram (Req 10) -->
+      <section class="workflow-section">
+        <div class="sim-card-header">
+          <div class="sim-card-title">
+            <span>🔀 Visual Workflow Architecture</span>
+            <span class="edu-tooltip-icon" title="Shows active execution stage in real-time">?</span>
+          </div>
+          <span class="edu-callout">Live synchronization pipeline path</span>
+        </div>
+        
+        <div class="workflow-flowchart">
+          <div id="wf-passengers" class="wf-node">PASSENGERS</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-produce" class="wf-node">PRODUCE REQUEST</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-empty-sem" class="wf-node">EMPTY SEMAPHORE</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-buffer" class="wf-node">BOUNDED BUFFER</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-full-sem" class="wf-node">FULL SEMAPHORE</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-agents" class="wf-node">BOOKING AGENTS</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-buf-mutex" class="wf-node">BUFFER MUTEX</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-seat-mutex" class="wf-node">SEAT MUTEX</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-critical" class="wf-node">CRITICAL SECTION</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-check-seat" class="wf-node">CHECK SEAT</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-reserve" class="wf-node">RESERVE</div>
+          <span class="wf-arrow">/</span>
+          <div id="wf-reject" class="wf-node">REJECT</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-unlock-mutex" class="wf-node">UNLOCK MUTEX</div>
+          <span class="wf-arrow">➔</span>
+          <div id="wf-update-db" class="wf-node">UPDATE DATABASE</div>
+        </div>
+      </section>
+
+      <!-- 3-Column Producer Consumer Simulation Layout (Req 1) -->
+      <div class="simulation-grid">
+        
+        <!-- LEFT: Passengers - Producers -->
+        <div class="sim-card">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>👥 Passengers – Producers</span>
+            </div>
+            <span class="edu-callout">Generate booking requests</span>
+          </div>
+
+          <div id="passenger-list" class="passenger-list">
+            <!-- Dynamic passenger cards -->
+          </div>
+        </div>
+
+        <!-- CENTER: Bounded Buffer Queue -->
+        <div class="sim-card">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>📥 Bounded Buffer – Request Queue</span>
+            </div>
+            <span id="buffer-usage-text" style="font-family:var(--font-mono); font-size:0.85rem; font-weight:700; color:var(--accent-cyan);">Buffer: 0 / 5</span>
+          </div>
+
+          <div class="buffer-usage-bar-container">
+            <div id="buffer-usage-bar" class="buffer-usage-bar"></div>
+          </div>
+
+          <div id="buffer-alert" class="buffer-alert-banner alert-normal">
+            ✅ NORMAL OPERATION — Slots Available
+          </div>
+
+          <div id="buffer-slots" class="buffer-slots-container">
+            <!-- Dynamic buffer slots -->
+          </div>
+        </div>
+
+        <!-- RIGHT: Booking Agents - Consumers -->
+        <div class="sim-card">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>👔 Booking Agents – Consumers</span>
+            </div>
+            <span class="edu-callout">Consume requests & process seats</span>
+          </div>
+
+          <div id="agent-list" class="agent-list">
+            <!-- Dynamic agent cards -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Synchronization Metrics (Semaphores & Mutex) (Req 4 & 5) -->
+      <div class="sync-grid">
+        
+        <!-- Semaphores Panel -->
+        <div class="sync-panel">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>🚦 POSIX Semaphores</span>
+            </div>
+            <span class="edu-callout">Counting synchronization</span>
+          </div>
+
+          <div class="semaphore-display">
+            <div class="semaphore-counter">
+              <div>
+                <div style="font-weight:600; font-size:0.9rem;">EMPTY SLOTS</div>
+                <div class="sem-name">sem_t empty</div>
+              </div>
+              <div id="sem-empty-val" class="sem-value">5</div>
+            </div>
+
+            <div class="semaphore-counter">
+              <div>
+                <div style="font-weight:600; font-size:0.9rem;">FULL SLOTS</div>
+                <div class="sem-name">sem_t full</div>
+              </div>
+              <div id="sem-full-val" class="sem-value" style="color:var(--accent-amber);">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mutex Panel -->
+        <div class="sync-panel">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>🔒 Mutex / Critical Section</span>
+            </div>
+            <span class="edu-callout">Mutual Exclusion Locks</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div class="mutex-card">
+              <div class="mutex-header">
+                <span class="mutex-title">buffer_mutex</span>
+                <span id="buffer-mutex-tag" class="mutex-state-tag mutex-unlocked">🔓 UNLOCKED</span>
+              </div>
+              <div id="buffer-mutex-owner" style="font-size:0.8rem; color:var(--text-secondary);">Available</div>
+            </div>
+
+            <div class="mutex-card">
+              <div class="mutex-header">
+                <span class="mutex-title">seat_mutex</span>
+                <span id="seat-mutex-tag" class="mutex-state-tag mutex-unlocked">🔓 UNLOCKED</span>
+              </div>
+              <div id="seat-mutex-owner" style="font-size:0.8rem; color:var(--text-secondary);">Available</div>
+              <div id="seat-mutex-waiting" style="font-size:0.75rem; color:var(--accent-amber);">Waiting: None</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Statistics Summary -->
+        <div class="sync-panel">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>📊 Live Metrics</span>
+            </div>
+            <span class="edu-callout">Real-time counts</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Generated</span>
+              <span id="stat-generated" class="stat-val">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Processed</span>
+              <span id="stat-processed" class="stat-val">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Reserved</span>
+              <span id="stat-successful" class="stat-val" style="color:var(--accent-emerald);">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Rejected</span>
+              <span id="stat-failed" class="stat-val" style="color:var(--accent-rose);">0</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Flight Seat Database (Req 2) -->
+      <section class="seat-map-section">
+        <div class="seat-map-header">
+          <div class="sim-card-title">
+            <span>✈️ Flight Seat Database Map (Seats 1–10)</span>
+          </div>
+
+          <div class="seat-legend">
+            <div class="legend-item">
+              <div class="legend-dot dot-available"></div>
+              <span>AVAILABLE</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot dot-processing"></div>
+              <span>PROCESSING / LOCKED</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot dot-reserved"></div>
+              <span>RESERVED</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="seat-grid" class="seat-grid">
+          <!-- Dynamic seat cards -->
+        </div>
+      </section>
+
+      <!-- Live Event Log (Req 6) -->
+      <section class="log-section">
+        <div class="log-header">
+          <div class="sim-card-title">
+            <span>📜 Live Synchronization Event Log</span>
+          </div>
+          <span style="font-size:0.8rem; color:var(--text-muted); font-family:var(--font-mono);">Auto-scrolling realtime events</span>
+        </div>
+
+        <div id="event-log-terminal" class="log-terminal">
+          <!-- Log entries -->
+        </div>
+      </section>
+
+      <!-- Bottom Detailed Statistics Panel (Req 9) -->
+      <section class="log-section">
+        <div class="sim-card-title" style="margin-bottom:0.5rem;">
+          <span>📈 Dynamic Statistics Dashboard</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">Total Passengers</span>
+            <span class="stat-val">10</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Available Seats</span>
+            <span id="stat-available-seats" class="stat-val">10</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Reserved Seats</span>
+            <span id="stat-reserved-seats" class="stat-val" style="color:var(--accent-emerald);">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Buffer Usage</span>
+            <span id="stat-buffer-usage" class="stat-val" style="color:var(--accent-cyan);">0 / 5</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Race Prevented</span>
+            <span id="stat-race-prevented" class="stat-val" style="color:var(--accent-purple);">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Duplicate Bookings</span>
+            <span id="stat-duplicates" class="stat-val" style="color:var(--accent-rose);">0</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="completion-panel" class="completion-panel" hidden>
+        <div class="completion-title">SIMULATION COMPLETED</div>
+        <div class="completion-items">
+          <span>✓ Producer–Consumer synchronization demonstrated</span>
+          <span>✓ Bounded buffer and semaphores demonstrated</span>
+          <span>✓ Mutex and critical section demonstrated</span>
+          <span>✓ Race condition prevented</span>
+          <span>✓ No duplicate seat reservation</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- TAB 2: RACE CONDITION DEMONSTRATION (Req 3) -->
+    <div id="tab-race" class="tab-content">
+      <div class="race-demo-card">
+        <div class="sim-card-header">
+          <div class="sim-card-title">
+            <span>🛡️ Race Condition Demonstration: Unsynchronized vs Synchronized</span>
+          </div>
+          <span class="edu-callout">Side-by-side comparative execution</span>
+        </div>
+
+        <p style="font-size:0.95rem; color:var(--text-secondary);">
+          This interactive test demonstrates what happens when two booking agents concurrently try to reserve the <strong>SAME SEAT (Seat 5)</strong> for Passenger 3 and Passenger 6.
+        </p>
+
+        <div class="race-comparison-grid">
+          
+          <!-- Unsynchronized Box -->
+          <div class="race-box unsync-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="color:var(--accent-rose); font-size:1.1rem; display:flex; align-items:center; gap:0.5rem;">
+                <span>❌ WITHOUT MUTEX</span>
+                <span style="font-size:0.8rem; padding:0.2rem 0.5rem; background:rgba(244,63,94,0.2); border-radius:6px;">Unsafe Concurrent Access</span>
+              </h3>
+              <button id="btn-run-race-unsync" class="btn btn-danger">Run Without Mutex</button>
+            </div>
+
+            <div id="race-unsync-log" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+              <div class="timeline-step">Click "Run Without Mutex" to simulate un-synchronized memory access race condition.</div>
+            </div>
+          </div>
+
+          <!-- Synchronized Box -->
+          <div class="race-box sync-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="color:var(--accent-emerald); font-size:1.1rem; display:flex; align-items:center; gap:0.5rem;">
+                <span>✓ WITH SYNCHRONIZATION</span>
+                <span style="font-size:0.8rem; padding:0.2rem 0.5rem; background:rgba(16,185,129,0.2); border-radius:6px;">Mutex Protected</span>
+              </h3>
+              <button id="btn-run-race-sync" class="btn btn-primary">Run With Synchronization</button>
+            </div>
+
+            <div id="race-sync-log" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+              <div class="timeline-step">Click "Run With Synchronization" to simulate mutex lock & critical section protection.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: OS THEORY & C CODE VIEWER -->
+    <div id="tab-theory" class="tab-content">
+      <div class="code-viewer-grid">
+        
+        <!-- C POSIX Pthread Implementation -->
+        <div class="sim-card">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>💻 C POSIX Implementation (`pthread` & `semaphore.h`)</span>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <a href="airport_reservation.c" download="airport_reservation.c" class="btn btn-primary" style="text-decoration:none; font-size:0.8rem; padding:0.4rem 0.8rem;">
+                📥 Download C Code (.c)
+              </a>
+            </div>
+          </div>
+
+          <div class="code-block">
+            <div id="code-line-1" class="code-line"><span class="comment">// Producer thread function: Passenger booking generator</span></div>
+            <div id="code-line-2" class="code-line"><span class="keyword">void</span>* <span class="func">producer_thread</span>(<span class="keyword">void</span>* arg) {</div>
+            <div id="code-line-3" class="code-line">    <span class="func">sem_wait</span>(&amp;empty); <span class="comment">// Wait for available buffer slot</span></div>
+            <div id="code-line-4" class="code-line">    <span class="func">pthread_mutex_lock</span>(&amp;buffer_mutex); <span class="comment">// Acquire buffer lock</span></div>
+            <div id="code-line-5" class="code-line">    <span class="func">insert_request_to_buffer</span>(req);</div>
+            <div id="code-line-6" class="code-line">    <span class="func">pthread_mutex_unlock</span>(&amp;buffer_mutex);</div>
+            <div id="code-line-7" class="code-line">    <span class="func">sem_post</span>(&amp;full); <span class="comment">// Signal full slot available</span></div>
+            <div id="code-line-8" class="code-line">}</div>
+            <br>
+            <div id="code-line-9" class="code-line"><span class="comment">// Consumer thread function: Booking agent</span></div>
+            <div id="code-line-10" class="code-line"><span class="keyword">void</span>* <span class="func">consumer_agent</span>(<span class="keyword">void</span>* arg) {</div>
+            <div id="code-line-11" class="code-line">    <span class="func">sem_wait</span>(&amp;full); <span class="comment">// Wait for requests in buffer</span></div>
+            <div id="code-line-12" class="code-line">    <span class="func">pthread_mutex_lock</span>(&amp;buffer_mutex);</div>
+            <div id="code-line-13" class="code-line">    BookingRequest req = <span class="func">remove_request_from_buffer</span>();</div>
+            <div id="code-line-14" class="code-line">    <span class="func">pthread_mutex_unlock</span>(&amp;buffer_mutex);</div>
+            <div id="code-line-15" class="code-line">    <span class="func">sem_post</span>(&amp;empty); <span class="comment">// Signal empty slot freed</span></div>
+            <br>
+            <div id="code-line-16" class="code-line">    <span class="comment">// Critical Section: Flight Seat Database access</span></div>
+            <div id="code-line-17" class="code-line">    <span class="func">pthread_mutex_lock</span>(&amp;seat_mutex); <span class="comment">// Lock seat database</span></div>
+            <div id="code-line-18" class="code-line">    <span class="keyword">if</span> (seat[req.seat].status == <span class="type">AVAILABLE</span>) {</div>
+            <div id="code-line-19" class="code-line">        seat[req.seat].status = <span class="type">RESERVED</span>;</div>
+            <div id="code-line-20" class="code-line">    }</div>
+            <div id="code-line-21" class="code-line">    <span class="func">pthread_mutex_unlock</span>(&amp;seat_mutex); <span class="comment">// Unlock seat database</span></div>
+            <div id="code-line-22" class="code-line">}</div>
+          </div>
+        </div>
+
+        <!-- Viva Voce Cheatsheet -->
+        <div class="sim-card">
+          <div class="sim-card-header">
+            <div class="sim-card-title">
+              <span>📚 OS Practical Viva Voce Cheatsheet</span>
+            </div>
+            <span class="edu-callout">Top oral examination questions</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.5rem; overflow-y:auto; max-height:450px;">
+            <div class="viva-item">
+              <div class="viva-q">Q1: What is the Producer-Consumer Problem?</div>
+              <div class="viva-a">It is a classic multi-process synchronization problem where one set of threads (producers) generates items into a bounded shared queue, and another set (consumers) removes them, ensuring no buffer overflow or underflow occurs.</div>
+            </div>
+
+            <div class="viva-item">
+              <div class="viva-q">Q2: Why do we need both Semaphores and Mutexes?</div>
+              <div class="viva-a">Counting semaphores (<code>empty</code> and <code>full</code>) track available/occupied buffer slot counts and block threads when the queue is full or empty. The Mutex (<code>buffer_mutex</code> / <code>seat_mutex</code>) guarantees Mutual Exclusion so only one thread modifies shared queue data structures or seat states at any instant.</div>
+            </div>
+
+            <div class="viva-item">
+              <div class="viva-q">Q3: What causes a Race Condition in seat reservation?</div>
+              <div class="viva-a">When two concurrent booking agents check and write a seat state without a mutex lock. Both see the seat as <code>AVAILABLE</code>, and both attempt to write <code>RESERVED</code>, leading to data corruption and duplicate seat booking.</div>
+            </div>
+
+            <div class="viva-item">
+              <div class="viva-q">Q4: What is a Critical Section?</div>
+              <div class="viva-a">The section of code where shared resources (e.g. flight seat array or buffer pointers) are accessed and updated. Access must be mutually exclusive.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript App Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
